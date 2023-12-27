@@ -1,13 +1,15 @@
 #!/usr/bin/python3
 
-from datetime import datetime, date, timedelta
-from configparser import ConfigParser
 import time
 from ast import literal_eval as make_tuple
-from icalendar import Calendar
-import requests
+from configparser import ConfigParser
+from datetime import date, datetime, timedelta
+
 import pytz
 import recurring_ical_events
+import requests
+from icalendar import Calendar
+
 
 def ordinal(n: int):
     if 11 <= (n % 100) <= 13:
@@ -16,6 +18,7 @@ def ordinal(n: int):
         suffix = ["th", "st", "nd", "rd", "th"][min(n % 10, 4)]
     return str(n) + suffix
 
+
 dtend = []
 dtstart = []
 priority = []
@@ -23,6 +26,7 @@ status = []
 location = []
 name = []
 isimportant = []
+
 
 def fuckswap(a, b):
     dtstart[a], dtstart[b] = dtstart[b], dtstart[a]
@@ -33,8 +37,8 @@ def fuckswap(a, b):
     name[a], name[b] = name[b], name[a]
     isimportant[a], isimportant[b] = isimportant[b], isimportant[a]
 
-while (True):
 
+while True:
     config_object = ConfigParser()
     config_object.read("config.ini")
 
@@ -45,7 +49,7 @@ while (True):
     hide_events = str(readinfo["hide_events"])
 
     readinfo2 = config_object["SITE"]
-    if (str(readinfo2["no_unknown"]) == "True"):
+    if str(readinfo2["no_unknown"]) == "True":
         no_unknown = True
     else:
         no_unknown = False
@@ -70,43 +74,48 @@ while (True):
     location = []
     name = []
     isimportant = []
- 
+
     all_count = 0  # all_count is only for debug and display purposes.
     shown_count = 0  # shown_count is only for debug and display purposes.
- 
- 
+
     now = datetime.now(tz_user)
 
     allevents = []
-    
+
     for item in url:
         r = requests.get(item, allow_redirects=True, timeout=10)
-        open('data.ics', 'wb').write(r.content)
+        open("data.ics", "wb").write(r.content)
 
-        e = open('data.ics', 'rb')
+        e = open("data.ics", "rb")
         ecal = Calendar.from_ical(e.read())
         e.close()
         filter_mode = str(readinfo["filter_mode"])
 
-        if (filter_mode == "Specific"):
+        if filter_mode == "Specific":
             begindate = make_tuple(str(readinfo["specific_start"]))
             enddate = make_tuple(str(readinfo["specific_end"]))
-            if (begindate == enddate):
+            if begindate == enddate:
                 allevents = allevents + recurring_ical_events.of(ecal).at(begindate)
             else:
-                allevents = allevents + recurring_ical_events.of(
-                    ecal).between(begindate, enddate)
-        elif (filter_mode == "Relative"):
+                allevents = allevents + recurring_ical_events.of(ecal).between(
+                    begindate, enddate
+                )
+        elif filter_mode == "Relative":
             begindate = int(readinfo["relative_start"])
             enddate = int(readinfo["relative_end"])
-            allevents = allevents + recurring_ical_events.of(ecal).between(datetime(now.year, now.month, now.day) + timedelta(
-                begindate), datetime(now.year, now.month, now.day) + timedelta(enddate, 59, 999, 999, 59, 23))
+            allevents = allevents + recurring_ical_events.of(ecal).between(
+                datetime(now.year, now.month, now.day) + timedelta(begindate),
+                datetime(now.year, now.month, now.day)
+                + timedelta(enddate, 59, 999, 999, 59, 23),
+            )
         else:
-            allevents = allevents + recurring_ical_events.of(ecal).between(datetime(
-                now.year, now.month, now.day), datetime(now.year, now.month, now.day) + timedelta(14))
+            allevents = allevents + recurring_ical_events.of(ecal).between(
+                datetime(now.year, now.month, now.day),
+                datetime(now.year, now.month, now.day) + timedelta(14),
+            )
         for event in recurring_ical_events.of(ecal).between((1969), (2099)):
             all_count += 1
-    
+
     for event in allevents:
         shown_count += 1
 
@@ -120,40 +129,42 @@ while (True):
             timeend = event["DTEND"].dt
         except KeyError:
             timeend = event["DTSTART"].dt
-        
+
         if type(timeend) == datetime:
             if timeend.tzinfo == None:
                 timeend = datetime.combine(timeend.date(), timeend.time(), tz_user)
-        
+
         if type(timeend) == date:
             timeend = datetime.combine(timeend, datetime.min.time(), tz_user)
-            
+
         delta: timedelta = timeend.astimezone(tz_user) - now
         realenddate = timeend.astimezone(tz_user)
 
-        if (delta.days < -1 or (delta.days == -1 and realenddate.day != now.day)):
-            before_today = True # Event has concluded before today
-        elif (delta.days == -1 and realenddate.day == now.day):
-            today_done = True # Event has concluded today
+        if delta.days < -1 or (delta.days == -1 and realenddate.day != now.day):
+            before_today = True  # Event has concluded before today
+        elif delta.days == -1 and realenddate.day == now.day:
+            today_done = True  # Event has concluded today
 
-        if (hide_events == "All" and (before_today or today_done)):
+        if hide_events == "All" and (before_today or today_done):
             continue
-        if (hide_events == "Today" and before_today):
+        if hide_events == "Today" and before_today:
             continue
 
         timestart = event["DTSTART"].dt
-        
+
         if type(timestart) == datetime:
             if timestart.tzinfo == None:
-                timestart = datetime.combine(timestart.date(), timestart.time(), tz_user)
-        
+                timestart = datetime.combine(
+                    timestart.date(), timestart.time(), tz_user
+                )
+
         if type(timestart) == date:
             timestart = datetime.combine(timestart, datetime.min.time(), tz_user)
-            
+
         delta2: timedelta = timestart.astimezone(tz_user) - now
         realstartdate = timestart.astimezone(tz_user)
-        
-        if (delta2.days < 0 and (not today_done) and (not before_today)):
+
+        if delta2.days < 0 and (not today_done) and (not before_today):
             ongoing = True
 
         dtend.append(realenddate)
@@ -166,13 +177,13 @@ while (True):
         except KeyError:
             prioritynum = 0
 
-        if (prioritynum == 1):
+        if prioritynum == 1:
             priority.append("HIGH")
             isimportant.append(True)
-        elif (prioritynum == 9):
+        elif prioritynum == 9:
             priority.append("LOW")
             isimportant.append(False)
-        elif (prioritynum == 5 or (no_unknown and prioritynum == 0)):
+        elif prioritynum == 5 or (no_unknown and prioritynum == 0):
             priority.append("MID")
             isimportant.append(False)
         else:
@@ -184,15 +195,15 @@ while (True):
         except KeyError:
             stats = "Unspecified"
 
-        if (ongoing and stats != "CANCELLED"):
+        if ongoing and stats != "CANCELLED":
             status.append("Departed")
-        elif ((before_today or today_done) and stats != "CANCELLED"):
+        elif (before_today or today_done) and stats != "CANCELLED":
             status.append("Arrived")
-        elif (stats == "TENTATIVE"):
+        elif stats == "TENTATIVE":
             status.append("Unknown")
-        elif (stats == "CANCELLED"):
+        elif stats == "CANCELLED":
             status.append("Cancelled")
-        elif (stats == "CONFIRMED" or no_unknown):
+        elif stats == "CONFIRMED" or no_unknown:
             status.append("On Time")
         else:
             status.append("Unspecified")
@@ -204,89 +215,131 @@ while (True):
 
         location.append(locas)
 
-    for i in range(len(name)-1):
+    for i in range(len(name) - 1):
         mark = False
-        for j in range(len(name)-i-1):
-            if (dtstart[j+1] < dtstart[j]):
-                fuckswap(j, j+1)
+        for j in range(len(name) - i - 1):
+            if dtstart[j + 1] < dtstart[j]:
+                fuckswap(j, j + 1)
                 mark = True
-        if (not mark):
+        if not mark:
             break
 
     f = open("index.html", "w", encoding="utf-8")
 
-    f.write("""<html>
+    f.write(
+        """<html>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <head>
-<meta http-equiv="refresh" content=\"""" + str(refresh_interval) + """\" />
+<meta http-equiv="refresh" content=\""""
+        + str(refresh_interval)
+        + """\" />
 <meta charset="UTF-8">
 <title>Test</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<br/>""")
-    if (str(search_bar) == "True"):
-        f.write("""<input type="text" id="inputbox" onkeyup="myFunction()" placeholder="Search for events.." title="Enter event name" />""")
-    f.write("""<table align="center" id="timetable">
+<br/>"""
+    )
+    if str(search_bar) == "True":
+        f.write(
+            """<input type="text" id="inputbox" onkeyup="myFunction()" placeholder="Search for events.." title="Enter event name" />"""
+        )
+    f.write(
+        """<table align="center" id="timetable">
 <tr>
 <th>POS&nbsp;&nbsp; </th>
-<th>Time&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </th>""")
-    if (str(importance_in_status) == "False"):
+<th>Time&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </th>"""
+    )
+    if str(importance_in_status) == "False":
         f.write("""<th>PRI&nbsp;&nbsp; </th>""")
-    f.write("""<th>Name&nbsp;&nbsp;&nbsp; </th>
+    f.write(
+        """<th>Name&nbsp;&nbsp;&nbsp; </th>
 <th>Status&nbsp;&nbsp;&nbsp; </th>
-</tr>\n\n""")
+</tr>\n\n"""
+    )
 
     for i in range(len(name)):
-        f.write("<tr>\n<td>" + str(ordinal(i+1)) + "</td>\n<td>" + str(dtstart[i].strftime(
-            '%d/%b/%y %H:%M')) + "</td>\n")
-        if (str(importance_in_status) == "False"):
+        f.write(
+            "<tr>\n<td>"
+            + str(ordinal(i + 1))
+            + "</td>\n<td>"
+            + str(dtstart[i].strftime("%d/%b/%y %H:%M"))
+            + "</td>\n"
+        )
+        if str(importance_in_status) == "False":
             f.write("<td>" + str(priority[i]) + "</td>\n")
         f.write("<td>" + str(name[i]) + "</td>\n")
 
-        if (str(status[i]) == "Departed"):
-            f.write("<td style=\"color: #00d619\">" +
-                    started_text + "</td>\n</tr>\n\n")
-        elif (str(status[i]) == "Arrived"):
-            f.write("<td style=\"color: #c842f5\">" +
-                    ended_text + "</td>\n</tr>\n\n")
-        elif (str(status[i]) == "Cancelled"):
-            f.write("<td style=\"color: #ff1f1f\">" +
-                    cancelled_text + "</td>\n</tr>\n\n")
-        elif (str(status[i]) == "Unknown"):
+        if str(status[i]) == "Departed":
+            f.write('<td style="color: #00d619">' + started_text + "</td>\n</tr>\n\n")
+        elif str(status[i]) == "Arrived":
+            f.write('<td style="color: #c842f5">' + ended_text + "</td>\n</tr>\n\n")
+        elif str(status[i]) == "Cancelled":
+            f.write('<td style="color: #ff1f1f">' + cancelled_text + "</td>\n</tr>\n\n")
+        elif str(status[i]) == "Unknown":
             f.write("<td>" + tentative_text + "</td>\n</tr>\n\n")
-        elif (str(status[i]) == "Unspecified"):
+        elif str(status[i]) == "Unspecified":
             f.write("<td>" + unspecified_text + "</td>\n</tr>\n\n")
-        elif (str(status[i]) == "On Time" and str(importance_in_status) == "True" and isimportant[i]):
-            f.write("<td style=\"color: #fee715\">" + important_text + "</td>\n</tr>\n\n")
-        elif (str(status[i]) == "On Time"):
-            f.write("<td style=\"color: #00d619\">" +
-                    confirmed_text + "</td>\n</tr>\n\n")
+        elif (
+            str(status[i]) == "On Time"
+            and str(importance_in_status) == "True"
+            and isimportant[i]
+        ):
+            f.write('<td style="color: #fee715">' + important_text + "</td>\n</tr>\n\n")
+        elif str(status[i]) == "On Time":
+            f.write('<td style="color: #00d619">' + confirmed_text + "</td>\n</tr>\n\n")
         else:
             f.write("<td>" + str(status[i]) + "</td>\n</tr>\n\n")
 
-        if (((display_location == "First" and i == 0) 
-      or display_location == "All" 
-      or (display_location == "AllAuto" and str(location[i]) != "None") 
-      or (display_location == "FirstAuto" and i == 0 and str(location[i]) != "None") 
-      or (display_location == "Today" and dtstart[i].day <= now.day and dtend[i].day >= now.day) 
-      or (display_location == "TodayAuto" and dtstart[i].day <= now.day and dtend[i].day >= now.day and str(location[i]) != "None")) 
-      and ("".join(list(str(location[i]))[0:4]) != "http" or location_link == "True")):
-            if (str(importance_in_status) == "False"):
-                f.write("<tr>\n<td></td>\n<td style=\"color: #ff1f1f\">Calling at:</td>\n<td></td>\n<td>" +
-                    str(location[i]) + "</td>\n<td></td>\n</tr>\n\n")
+        if (
+            (display_location == "First" and i == 0)
+            or display_location == "All"
+            or (display_location == "AllAuto" and str(location[i]) != "None")
+            or (
+                display_location == "FirstAuto"
+                and i == 0
+                and str(location[i]) != "None"
+            )
+            or (
+                display_location == "Today"
+                and dtstart[i].day <= now.day
+                and dtend[i].day >= now.day
+            )
+            or (
+                display_location == "TodayAuto"
+                and dtstart[i].day <= now.day
+                and dtend[i].day >= now.day
+                and str(location[i]) != "None"
+            )
+        ) and (
+            "".join(list(str(location[i]))[0:4]) != "http" or location_link == "True"
+        ):
+            if str(importance_in_status) == "False":
+                f.write(
+                    '<tr>\n<td></td>\n<td style="color: #ff1f1f">Calling at:</td>\n<td></td>\n<td>'
+                    + str(location[i])
+                    + "</td>\n<td></td>\n</tr>\n\n"
+                )
             else:
-                f.write("<tr>\n<td></td>\n<td style=\"color: #ff1f1f\">Calling at:</td>\n<td>" +
-                    str(location[i]) + "</td>\n<td></td>\n</tr>\n\n")
+                f.write(
+                    '<tr>\n<td></td>\n<td style="color: #ff1f1f">Calling at:</td>\n<td>'
+                    + str(location[i])
+                    + "</td>\n<td></td>\n</tr>\n\n"
+                )
 
-    f.write("""</table>
+    f.write(
+        """</table>
 <div id="scroll-container">
-<div id="scroll-text">""" + scrolltext + """</div>
+<div id="scroll-text">"""
+        + scrolltext
+        + """</div>
 </div>
 <div id="scroll-container">
-<div id="scroll-text-2">Last Updated: """)
-    f.write(str(now.strftime('%Y-%m-%d %H:%M:%S.%f')))
-    f.write("""</div>
+<div id="scroll-text-2">Last Updated: """
+    )
+    f.write(str(now.strftime("%Y-%m-%d %H:%M:%S.%f")))
+    f.write(
+        """</div>
 </div>
 <br/>
 <script>
@@ -296,12 +349,14 @@ function myFunction() {
     filter = input.value.toUpperCase();
     table = document.getElementById("timetable");
     tr = table.getElementsByTagName("tr");
-    for (i = 0; i < tr.length; i++) {\n""")
-    if (str(importance_in_status) == "True"):
+    for (i = 0; i < tr.length; i++) {\n"""
+    )
+    if str(importance_in_status) == "True":
         f.write("""      td = tr[i].getElementsByTagName("td")[2];""")
     else:
         f.write("""      td = tr[i].getElementsByTagName("td")[3];""")
-    f.write("""
+    f.write(
+        """
       td2 = tr[i].getElementsByTagName("td")[1];
       if (td) {
         txtValue = td.textContent || td.innerText;
@@ -325,13 +380,24 @@ function myFunction() {
 </script>
 </body>
 </html>
-""")
+"""
+    )
 
     f.close()
-    print("\nRefreshed successfully at " + str(now.strftime('%Y-%m-%d %H:%M:%S.%f')) + ".\nRendered " +
-          str(len(name)) + " events out of " + str(shown_count) + ", filtered from " + str(all_count) + " fetched.\n")
+    print(
+        "\nRefreshed successfully at "
+        + str(now.strftime("%Y-%m-%d %H:%M:%S.%f"))
+        + ".\nRendered "
+        + str(len(name))
+        + " events out of "
+        + str(shown_count)
+        + ", filtered from "
+        + str(all_count)
+        + " fetched.\n"
+    )
     try:
         time.sleep(regenerate_interval)
     except KeyboardInterrupt:
         print("Keyboard interruption detected. Program ending.")
         break
+
