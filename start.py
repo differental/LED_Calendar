@@ -234,7 +234,7 @@ while True:
         + str(refresh_interval)
         + """\" />
 <meta charset="UTF-8">
-<title>Test</title>
+<title>LED Calendar</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
