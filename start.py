@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from configparser import ConfigParser
 import time
 from ast import literal_eval as make_tuple
@@ -120,24 +120,16 @@ while (True):
             timeend = event["DTEND"].dt
         except KeyError:
             timeend = event["DTSTART"].dt
-
-        combine_end = datetime.combine(timeend, datetime.min.time(), tz_user)
         
-        if timeend.tzinfo == None: #no timezone (timezone unaware)
-            timeend = datetime.combine(timeend.date(), timeend.time(), tz_user)
-
-        try:
-            delta: timedelta = timeend - now
-        except TypeError:
-            format_datetime = False
-            delta: timedelta = combine_end - now
-
-        if (format_datetime):
-            delta: timedelta = timeend.astimezone(tz_user) - now
-            realenddate = timeend.astimezone(tz_user)
-        else:
-            delta: timedelta = combine_end.astimezone(tz_user) - now
-            realenddate = combine_end.astimezone(tz_user)
+        if type(timeend) == datetime:
+            if timeend.tzinfo == None:
+                timeend = datetime.combine(timeend.date(), timeend.time(), tz_user)
+        
+        if type(timeend) == date:
+            timeend = datetime.combine(timeend, datetime.min.time(), tz_user)
+            
+        delta: timedelta = timeend.astimezone(tz_user) - now
+        realenddate = timeend.astimezone(tz_user)
 
         if (delta.days < -1 or (delta.days == -1 and realenddate.day != now.day)):
             before_today = True # Event has concluded before today
@@ -150,26 +142,17 @@ while (True):
             continue
 
         timestart = event["DTSTART"].dt
-
-        combine_start = datetime.combine(
-            timestart, datetime.min.time(), tz_user)
-
-        if timestart.tzinfo == None: #no timezone (timezone unaware)
-            timestart = datetime.combine(timestart.date(), timestart.time(), tz_user)
-
-        try:
-            delta2: timedelta = timestart - now
-        except TypeError:
-            format_datetime2 = False
-            delta2: timedelta = combine_start - now
-
-        if (format_datetime2):
-            delta2: timedelta = timestart.astimezone(tz_user) - now
-            realstartdate = timestart.astimezone(tz_user)
-        else:
-            delta: timedelta = combine_start.astimezone(tz_user) - now
-            realstartdate = combine_start.astimezone(tz_user)
-
+        
+        if type(timestart) == datetime:
+            if timestart.tzinfo == None:
+                timestart = datetime.combine(timestart.date(), timestart.time(), tz_user)
+        
+        if type(timestart) == date:
+            timestart = datetime.combine(timestart, datetime.min.time(), tz_user)
+            
+        delta2: timedelta = timestart.astimezone(tz_user) - now
+        realstartdate = timestart.astimezone(tz_user)
+        
         if (delta2.days < 0 and (not today_done) and (not before_today)):
             ongoing = True
 
