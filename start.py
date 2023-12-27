@@ -83,7 +83,7 @@ while (True):
         r = requests.get(item, allow_redirects=True, timeout=10)
         open('data.ics', 'wb').write(r.content)
 
-        e = open('test.ics', 'rb')
+        e = open('data.ics', 'rb')
         ecal = Calendar.from_ical(e.read())
         e.close()
         filter_mode = str(readinfo["filter_mode"])
